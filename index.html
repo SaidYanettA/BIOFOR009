@@ -710,32 +710,14 @@ function randHex(len){
   for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*16)];
   return s;
 }
-// Clone the extension block N times, each with freshly regenerated paraId/sdt-id/docPr-id
-// so Word doesn't see duplicate identifiers, then insert all clones right before the
-// document's final paragraph (anchored by LAST_PARA_ANCHOR).
+// Se desactiva la inyección del bloque extra porque EXT_BLOCK_B64 
+// contiene XML mal formado (etiquetas </w:txbxContent> sin abrir).
 function extendDocument(docXml, blocksNeeded){
-  if(blocksNeeded<=0) return docXml;
-  const rawBlock=new TextDecoder('utf-8').decode(b64ToBytes(EXT_BLOCK_B64));
-  let clones='';
-  for(let b=0;b<blocksNeeded;b++){
-    let block=rawBlock;
-    // Regenerate every w14:paraId="XXXXXXXX" (8 hex chars)
-    block=block.replace(/w14:paraId="[0-9A-F]{8}"/g, () => `w14:paraId="${randHex(8)}"`);
-    // Regenerate every <w:id w:val="NUMBER"/> (sdt ids, can be negative)
-    block=block.replace(/<w:id w:val="-?\d+"\/>/g, () => `<w:id w:val="${(Math.random()<0.5?'-':'')}${randId(9)}"/>`);
-    // Regenerate pic:cNvPr id and wp:docPr id (positive numeric ids)
-    block=block.replace(/<pic:cNvPr id="\d+"/g, () => `<pic:cNvPr id="${randId(10)}"`);
-    block=block.replace(/<wp:docPr id="\d+"/g, () => `<wp:docPr id="${randId(10)}"`);
-    clones+=block;
+  if(blocksNeeded > 0) {
+    console.warn("Se omitió la inyección de páginas extra para evitar la corrupción del DOCX (EXT_BLOCK_B64 es inválido).");
   }
-  const anchor=`w14:paraId="${LAST_PARA_ANCHOR}"`;
-  const idx=docXml.indexOf(anchor);
-  if(idx===-1) return docXml; // anchor not found — fail safe, return unmodified
-  const pStart=docXml.lastIndexOf('<w:p ', idx);
-  if(pStart===-1) return docXml;
-  return docXml.slice(0,pStart)+clones+docXml.slice(pStart);
+  return docXml;
 }
-
 async function generateDocx(){
   const btn=document.getElementById('gen-btn'),lbl=document.getElementById('gen-label'),msgEl=document.getElementById('gen-msg');
   btn.disabled=true;lbl.innerHTML='<div class="spin"></div> Generando...';msgEl.style.display='none';
